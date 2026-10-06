@@ -6,7 +6,8 @@ namespace Pandora.Services
 {
     public interface IUserAccountsService
     {
-        Task<(object User, List<string> Roles)> AuthenticateAndGetRolesAsync(string username);
+        Task<object> GetUserByLogonAsync(string logon);
+        Task<List<string>> GetUserRoleNamesAsync(string userId);
     }
 
     public class UserAccountsService : IUserAccountsService
@@ -18,9 +19,14 @@ namespace Pandora.Services
             _userAccountsRepository = userAccountsRepository;
         }
 
-        public async Task<(object User, List<string> Roles)> AuthenticateAndGetRolesAsync(string username)
+        public async Task<object> GetUserByLogonAsync(string logon)
         {
-            return await _userAccountsRepository.GetUserWithRolesAsync(username);
+            return await _userAccountsRepository.GetUserByLogonAsync(logon);
+        }
+
+        public async Task<List<string>> GetUserRoleNamesAsync(string userId)
+        {
+            return await _userAccountsRepository.GetUserRoleNamesAsync(userId);
         }
     }
 }

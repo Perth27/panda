@@ -1,64 +1,108 @@
-private readonly Security.IAuthenticationService _authService;
-private readonly IUserAccountsService _userAccountsService; // Inject your new service
-private readonly ISignInManager _signInManager;
-private readonly IHttpContextAccessor _httpContextAccessor;
-private readonly IHostEnvironment _environment;
-private readonly IConfiguration _configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
+using System.Threading.Tasks;
+using System;
+using Pandora.Services;
+using Pandora.Models;
 
-public UserAccountsController(
-    Security.IAuthenticationService authService,
-    IUserAccountsService userAccountsService,
-    ISignInManager signInManager,
-    IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment environment,
-    IConfiguration configuration)
+namespace Pandora.Controllers
 {
-    _authService = authService;
-    _userAccountsService = userAccountsService;
-    _signInManager = signInManager;
-    _httpContextAccessor = httpContextAccessor;
-    _environment = environment;
-    _configuration = configuration;
-}
-
-[HttpPost]
-[AllowAnonymous]
-[ValidateAntiForgeryToken]
-public async Task<IActionResult> Login(LoginViewModel model)
-{
-    var returnUrl = basePath + "/ConsolidatedBackups/Index";
-    if (!string.IsNullOrEmpty(model.ReturnUrl))
+    public class UserAccountsController : Controller
     {
-        if (model.ReturnUrl.Length > 1)
+        private readonly Security.IAuthenticationService _authService;
+        private readonly IUserAccountsService _userAccountsService;
+        private readonly ISignInManager _signInManager;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IHostEnvironment _environment;
+        private readonly IConfiguration _configuration;
+
+        // Base path or standard variables if used in your app
+        private readonly string basePath = ""; 
+
+        public UserAccountsController(
+            Security.IAuthenticationService authService,
+            IUserAccountsService userAccountsService,
+            ISignInManager signInManager,
+            IHttpContextAccessor httpContextAccessor,
+            IHostEnvironment environment,
+            IConfiguration configuration)
         {
-            returnUrl = basePath + model.ReturnUrl;
+            _authService = authService;
+            _userAccountsService = userAccountsService;
+            _signInManager = signInManager;
+            _httpContextAccessor = httpContextAccessor;
+            _environment = environment;
+            _configuration = configuration;
         }
-    }
 
-    if (ModelState.IsValid)
-    {
-        try
+        // GET: UserAccounts/Login
+        public IActionResult Login()
         {
-            var user = await _authService.Login(model.Username.ToUpper(), model.Password, model.Domain);
-            if (user != null)
+            if (_environment.IsDevelopment() || _environment.IsStaging())
             {
-                // Fetch user and roles cleanly through the service layer instead of _context
-                var (currentUser, userRolesNames) = await _userAccountsService.AuthenticateAndGetRolesAsync(model.Username);
+                var productionUrl = _configuration["productionUrl"];
+                ViewBag.EnvironmentMessage = $"This is a Non-Production environment. Please click on <a href=\"{productionUrl}\">{productionUrl}</a> to be directed to the Production environment.";
+            }
+            return View();
+        }
 
-                if (currentUser != null)
+        // POST: UserAccounts/Login
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login(LoginViewModel model)
+        {
+            var returnUrl = basePath + "/ConsolidatedBackups/Index";
+            if (!string.IsNullOrEmpty(model.ReturnUrl))
+            {
+                if (model.ReturnUrl.Length > 1)
                 {
-                    await _signInManager.SignInAsync(model.Username.ToUpper(), userRolesNames);
-                    return Redirect(returnUrl);
+                    returnUrl = basePath + model.ReturnUrl;
                 }
             }
-            
-            ModelState.AddModelError(string.Empty, "Incorrect Username or Password. Please try again.");
+
+            if (ModelState.IsValid)
+            {
+                try
+                {
+                    var user = await _authService.Login(model.Username.ToUpper(), model.Password, model.Domain);
+                    if (user != null)
+                    {
+                        var currentUser = (User)await _userAccountsService.GetUserByLogonAsync(model.Username.ToUpper());
+                        if (currentUser != null)
+                        {
+                            var userRolesNames = await _userAccountsService.GetUserRoleNamesAsync(currentUser.Id);
+
+                            await _signInManager.SignInAsync(model.Username.ToUpper(), userRolesNames);
+                            return Redirect(returnUrl);
+                        }
+                    }
+
+                    ModelState.AddModelError(string.Empty, "Incorrect Username or Password. Please try again.");
+                }
+                catch (Exception ex)
+                {
+                    ModelState.AddModelError(string.Empty, ex.Message);
+                }
+            }
+
+            return View(model);
         }
-        catch (Exception ex)
+
+        // POST: UserAccounts/SignOut
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SignOut()
         {
-            ModelState.AddModelError(string.Empty, ex.Message);
+            await _signInManager.SignOutAsync();
+
+            var basePathDynamic = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
+            var returnUrl = basePathDynamic + "/ConsolidatedBackups/Index";
+
+            return Redirect(returnUrl);
         }
     }
-
-    return View(model);
 }

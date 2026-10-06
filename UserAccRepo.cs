@@ -8,7 +8,8 @@ namespace Pandora.Repositories
 {
     public interface IUserAccountsRepository
     {
-        Task<(object User, List<string> Roles)> GetUserWithRolesAsync(string username);
+        Task<object> GetUserByLogonAsync(string logon);
+        Task<List<string>> GetUserRoleNamesAsync(string userId);
     }
 
     public class UserAccountsRepository : IUserAccountsRepository
@@ -20,30 +21,19 @@ namespace Pandora.Repositories
             _context = context;
         }
 
-        public async Task<(object User, List<string> Roles)> GetUserWithRolesAsync(string username)
+        public async Task<object> GetUserByLogonAsync(string logon)
         {
-            var upperUsername = username.ToUpper();
-
-            // Find the user by logon name
-            var currentUser = await _context.Users
-                .Where(u => u.Logon == upperUsername)
+            return await _context.Users
+                .Where(u => u.Logon == logon)
                 .FirstOrDefaultAsync();
+        }
 
-            if (currentUser == null)
-            {
-                return (null, new List<string>());
-            }
-
-            // Fetch the user's role names by joining UserRoles and Role tables
-            var roles = await _context.UserRoles
-                .Where(p => p.UserId == currentUser.Id)
-                .Join(_context.Role,
-                      userRole => userRole.RoleId,
-                      role => role.Id,
-                      (userRole, role) => role.Name)
+        public async Task<List<string>> GetUserRoleNamesAsync(string userId)
+        {
+            var usersRoles = _context.UserRoles.Where(p => p.UserId == userId);
+            return await _context.Roles
+                .Join(usersRoles, role => role.Id, userRole => userRole.RoleId, (role, userRole) => role.Name)
                 .ToListAsync();
-
-            return (currentUser, roles);
         }
     }
 }
