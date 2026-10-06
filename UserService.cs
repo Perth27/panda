@@ -1,126 +1,66 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Pandora.Models;
-using Pandora.ViewModels;
+using Pandora.Models.ViewModels;
 using Pandora.Repositories;
+using Pandora.Security;
 
 namespace Pandora.Services
 {
-    public interface IUsersService
+    public interface IUserAccountsService
     {
-        Task<List<User>> GetUsersAsync();
-        Task<User> GetUserDetailsAsync(string id);
-        UserVM GetUserCreateVM();
-        UserVM GetRepopulatedUserCreateVM(UserVM user);
-        Task<(bool IsSuccess, User NewUser, string ErrorMessage)> CreateUserAsync(UserVM user);
-        Task<User> GetUserForEditAsync(string id);
-        Task UpdateUserAsync(UserVM user);
-        Task<User> GetUserForDeleteAsync(string id);
-        Task DeleteUserAsync(string id);
-        bool UserExists(string id);
+        Task<(bool IsSuccess, string ErrorMessage, Exception ExceptionDetails)> ProcessLoginAsync(LoginViewModel model);
+        Task SignOutAsync();
     }
 
-    public class UsersService : IUsersService
+    public class UserAccountsService : IUserAccountsService
     {
-        private readonly IUsersRepository _repository;
-        private readonly UserManager<User> _userManager;
-        private readonly IUserExtension _userExtension;
+        private readonly IUserAccountsRepository _repository;
+        private readonly Security.IAuthenticationService _authService;
+        private readonly ISignInManager _signInManager;
 
-        public UsersService(IUsersRepository repository, UserManager<User> userManager, IUserExtension userExtension)
+        public UserAccountsService(
+            IUserAccountsRepository repository, 
+            Security.IAuthenticationService authService, 
+            ISignInManager signInManager)
         {
             _repository = repository;
-            _userManager = userManager;
-            _userExtension = userExtension;
+            _authService = authService;
+            _signInManager = signInManager;
         }
 
-        public async Task<List<User>> GetUsersAsync()
+        public async Task<(bool IsSuccess, string ErrorMessage, Exception ExceptionDetails)> ProcessLoginAsync(LoginViewModel model)
         {
-            return await _repository.GetAllUsersAsync();
-        }
-
-        public async Task<User> GetUserDetailsAsync(string id)
-        {
-            return await _repository.GetUserByIdAsync(id);
-        }
-
-        public UserVM GetUserCreateVM()
-        {
-            var model = new UserVM();
-            var roles = _repository.GetAllRoles();
-            foreach (var role in roles)
+            try
             {
-                model.RoleList.Add(new SelectListItem() { Text = role.Name, Value = role.Name });
+                var user = await _authService.Login(model.Username.ToUpper(), model.Password, model.Domain);
+                if (user != null)
+                {
+                    User currentUser = _repository.GetUserByLogon(model.Username);
+                    
+                    if (currentUser != null)
+                    {
+                        var userRolesNames = _repository.GetUserRolesNames(currentUser.Id);
+                        await _signInManager.SignInAsync(model.Username.ToUpper(), userRolesNames);
+                        return (true, null, null);
+                    }
+
+                    List<string> rolesList = new List<string>();
+                    await _signInManager.SignInAsync(model.Username.ToUpper(), rolesList);
+                    return (true, null, null);
+                }
+                
+                return (false, "Incorrect Username or Password. Please try again.", null);
             }
-            return model;
-        }
-
-        public UserVM GetRepopulatedUserCreateVM(UserVM user)
-        {
-            var roles = _repository.GetAllRoles();
-            foreach (var UserRole in roles)
+            catch (Exception ex)
             {
-                user.RoleList.Add(new SelectListItem() { Text = UserRole.Name, Value = UserRole.Name });
-            }
-            return user;
-        }
-
-        public async Task<(bool IsSuccess, User NewUser, string ErrorMessage)> CreateUserAsync(UserVM user)
-        {
-            User newUser = await _userExtension.LookupAdUser(user.Logon);
-            if (newUser == null)
-            {
-                return (false, null, null);
-            }
-
-            User existingUser = _repository.GetExistingUserByLogon(newUser.Logon);
-            if (existingUser != null)
-            {
-                return (false, null, "User already exists!");
-            }
-
-            string userPWD = "Vision1!";
-            var createNewUser = await _userManager.CreateAsync(newUser, userPWD);
-            if (createNewUser.Succeeded)
-            {
-                //here we tie the new user to the role : Question 3
-                await _userManager.AddToRoleAsync(newUser, user.RoleName);
-                return (true, newUser, null);
-            }
-
-            return (false, newUser, null);
-        }
-
-        public async Task<User> GetUserForEditAsync(string id)
-        {
-            return await _repository.FindUserByIdAsync(id);
-        }
-
-        public async Task UpdateUserAsync(UserVM user)
-        {
-            _repository.UpdateUser(user);
-            await _repository.SaveChangesAsync();
-        }
-
-        public async Task<User> GetUserForDeleteAsync(string id)
-        {
-            return await _repository.GetUserByIdAsync(id);
-        }
-
-        public async Task DeleteUserAsync(string id)
-        {
-            var user = await _repository.FindUserByIdAsync(id);
-            if (user != null)
-            {
-                _repository.RemoveUser(user);
-                await _repository.SaveChangesAsync();
+                return (false, null, ex);
             }
         }
 
-        public bool UserExists(string id)
+        public async Task SignOutAsync()
         {
-            return _repository.UserExists(id);
+            await _signInManager.SignOutAsync();
         }
     }
 }

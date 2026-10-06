@@ -1,166 +1,90 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using Pandora.Models;
 using Microsoft.AspNetCore.Authorization;
-using System.Diagnostics;
-using Microsoft.AspNetCore.Identity;
-using Pandora.ViewModels;
-using Novell.Directory.Ldap;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Pandora.Models.ViewModels;
 using Pandora.Services;
 
 namespace Pandora.Controllers
 {
-    //[Authorize(Roles = "Admin,Developer")]
-    public class UsersController : Controller
+    public class UserAccountsController : Controller
     {
-        private readonly IUsersService _usersService;
+        private readonly IUserAccountsService _userAccountsService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IHostEnvironment _environment;
+        private readonly IConfiguration _configuration;
 
-        public UsersController(IUsersService usersService)
+        public UserAccountsController(
+            IUserAccountsService userAccountsService, 
+            IHttpContextAccessor httpContextAccessor, 
+            IHostEnvironment environment, 
+            IConfiguration configuration)
         {
-            _usersService = usersService;
+            _userAccountsService = userAccountsService;
+            _httpContextAccessor = httpContextAccessor;
+            _environment = environment;
+            _configuration = configuration;
         }
 
-        // GET: Users
-        public async Task<IActionResult> Index()
+        public IActionResult Login()
         {
-            return View(await _usersService.GetUsersAsync());
-        }
-
-        // GET: Users/Details/5
-        public async Task<IActionResult> Details(string id)
-        {
-            if (id == null)
+            if (_environment.IsDevelopment() || _environment.IsStaging())
             {
-                return NotFound();
+                var productionUrl = _configuration["productionUrl"];
+                ViewBag.EnvironmentMessage = $"This is a Non-Production environment. Please click on <a href=\"{productionUrl}\">{productionUrl}</a> to be directed to the Production environment.";
+            }
+            return View();
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        public async Task<IActionResult> Login(LoginViewModel model)
+        {
+            model.Domain = "CORP";
+            var basePath = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
+            var returnUrl = basePath + "/ConsolidatedBackups/Index";
+            
+            if (!string.IsNullOrEmpty(model.ReturnUrl))
+            {
+                if (model.ReturnUrl.Length > 1)
+                {
+                    returnUrl = basePath + model.ReturnUrl;
+                }
             }
 
-            var user = await _usersService.GetUserDetailsAsync(id);
-            if (user == null)
+            if (ModelState.IsValid)
             {
-                return NotFound();
+                var result = await _userAccountsService.ProcessLoginAsync(model);
+                
+                if (result.IsSuccess)
+                {
+                    return Redirect(returnUrl);
+                }
+
+                if (result.ExceptionDetails != null)
+                {
+                    ModelState.AddModelError(string.Empty, result.ExceptionDetails.Message);
+                }
             }
 
-            return View(user);
-        }
-
-        // GET: Users/Create
-        public IActionResult Create()
-        {
-            var model = _usersService.GetUserCreateVM();
+            ViewBag.MessageError = "Incorrect Username or Password. Please try again.";
             return View(model);
         }
 
-        // POST: Users/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(UserVM user)
+        [AllowAnonymous]
+        public async Task<IActionResult> SignOut()
         {
-            user = _usersService.GetRepopulatedUserCreateVM(user);
-
-            if (ModelState.IsValid)
-            {
-                var result = await _usersService.CreateUserAsync(user);
-
-                if (!string.IsNullOrEmpty(result.ErrorMessage))
-                {
-                    TempData["error"] = result.ErrorMessage;
-                    return View(user);
-                }
-
-                if (result.IsSuccess)
-                {
-                    return RedirectToAction(nameof(Index));
-                }
-                
-                if (result.NewUser == null)
-                {
-                    return View(user);
-                }
-            }
-            return View(user);
-        }
-
-        // GET: Users/Edit/5
-        public async Task<IActionResult> Edit(string id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var user = await _usersService.GetUserForEditAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            return View(user);
-        }
-
-        // POST: Users/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, UserVM user)
-        {
-            if (id != user.Id)
-            {
-                return NotFound();
-            }
-
-            if (ModelState.IsValid)
-            {
-                try
-                {
-                    await _usersService.UpdateUserAsync(user);
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!_usersService.UserExists(user.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            return View(user);
-        }
-
-        // GET: Users/Delete/5
-        public async Task<IActionResult> Delete(string id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var user = await _usersService.GetUserForDeleteAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-
-            return View(user);
-        }
-
-        // POST: Users/Delete/5
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(string id)
-        {
-            await _usersService.DeleteUserAsync(id);
-            return RedirectToAction(nameof(Index));
+            await _userAccountsService.SignOutAsync();
+            
+            var basePath = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
+            var returnUrl = basePath + "/ConsolidatedBackups/Index";
+            
+            return Redirect(returnUrl);
         }
     }
 }

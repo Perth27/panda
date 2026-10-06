@@ -1,77 +1,42 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Pandora.Models;
-using Pandora.ViewModels;
 
 namespace Pandora.Repositories
 {
-    public interface IUsersRepository
+    public interface IUserAccountsRepository
     {
-        Task<List<User>> GetAllUsersAsync();
-        Task<User> GetUserByIdAsync(string id);
-        Task<User> FindUserByIdAsync(string id);
-        IEnumerable<dynamic> GetAllRoles();
-        User GetExistingUserByLogon(string logon);
-        void UpdateUser(UserVM user);
-        Task SaveChangesAsync();
-        void RemoveUser(User user);
-        bool UserExists(string id);
+        User GetUserByLogon(string logon);
+        List<string> GetUserRolesNames(string userId);
     }
 
-    public class UsersRepository : IUsersRepository
+    public class UserAccountsRepository : IUserAccountsRepository
     {
         private readonly PandoraDBContext _context;
 
-        public UsersRepository(PandoraDBContext context)
+        public UserAccountsRepository(PandoraDBContext context)
         {
             _context = context;
         }
 
-        public async Task<List<User>> GetAllUsersAsync()
+        public User GetUserByLogon(string logon)
         {
-            return await _context.User.ToListAsync();
+            // Replaced .ToUpper() with EF.Functions.ILike to fix PostgreSQL case-sensitivity
+            return _context.Users
+                .Where(u => EF.Functions.ILike(u.Logon, logon))
+                .ToList()
+                .FirstOrDefault();
         }
 
-        public async Task<User> GetUserByIdAsync(string id)
+        public List<string> GetUserRolesNames(string userId)
         {
-            return await _context.User.FirstOrDefaultAsync(m => m.Id == id);
-        }
-
-        public async Task<User> FindUserByIdAsync(string id)
-        {
-            return await _context.User.FindAsync(id);
-        }
-
-        public IEnumerable<dynamic> GetAllRoles()
-        {
-            return _context.Roles.ToList();
-        }
-
-        public User GetExistingUserByLogon(string logon)
-        {
-            return _context.Users.Where(m => m.Logon == logon).SingleOrDefault();
-        }
-
-        public void UpdateUser(UserVM user)
-        {
-            _context.Update(user);
-        }
-
-        public async Task SaveChangesAsync()
-        {
-            await _context.SaveChangesAsync();
-        }
-
-        public void RemoveUser(User user)
-        {
-            _context.User.Remove(user);
-        }
-
-        public bool UserExists(string id)
-        {
-            return _context.User.Any(e => e.Id == id);
+            var usersRoles = _context.UserRoles.Where(p => p.UserId == userId);
+            
+            return _context.Roles
+                .Join(usersRoles, roles => roles.Id, userRoles => userRoles.RoleId, (roles, userRoles) => roles)
+                .Select(roles => roles.Name)
+                .ToList();
         }
     }
 }
