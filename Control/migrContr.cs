@@ -6,28 +6,26 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pandora.Models;
-using Microsoft.AspNetCore.Authorization;
 using Pandora.Services;
 
 namespace Pandora.Controllers
 {
-    //[Authorize(Roles = "Admin")]
-    public class RolesController : Controller
+    public class MigratesController : Controller
     {
-        private readonly IRolesService _rolesService;
+        private readonly IMigratesService _migratesService;
 
-        public RolesController(IRolesService rolesService)
+        public MigratesController(IMigratesService migratesService)
         {
-            _rolesService = rolesService;
+            _migratesService = migratesService;
         }
 
-        // GET: Roles
+        // GET: Migrates
         public async Task<IActionResult> Index()
         {
-            return View(await _rolesService.GetRolesAsync());
+            return View(await _migratesService.GetMigratesAsync());
         }
 
-        // GET: Roles/Details/5
+        // GET: Migrates/Details/5
         public async Task<IActionResult> Details(string id)
         {
             if (id == null)
@@ -35,37 +33,37 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleDetailsAsync(id);
-            if (role == null)
+            var migrate = await _migratesService.GetMigrateDetailsAsync(id);
+            if (migrate == null)
             {
                 return NotFound();
             }
 
-            return View(role);
+            return View(migrate);
         }
 
-        // GET: Roles/Create
+        // GET: Migrates/Create
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: Roles/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: Migrates/Create
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,NormalizedName,ConcurrencyStamp")] Role role)
+        public async Task<IActionResult> Create([Bind("Id,Type,HLQ1,HLQ2,ManagementClass,CreatedYear,NoOfDatasets,Size")] Migrate migrate)
         {
             if (ModelState.IsValid)
             {
-                await _rolesService.CreateRoleAsync(role);
+                await _migratesService.CreateMigrateAsync(migrate);
                 return RedirectToAction(nameof(Index));
             }
-            return View(role);
+            return View(migrate);
         }
 
-        // GET: Roles/Edit/5
+        // GET: Migrates/Edit/5
         public async Task<IActionResult> Edit(string id)
         {
             if (id == null)
@@ -73,22 +71,22 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleForEditAsync(id);
-            if (role == null)
+            var migrate = await _migratesService.GetMigrateForEditAsync(id);
+            if (migrate == null)
             {
                 return NotFound();
             }
-            return View(role);
+            return View(migrate);
         }
 
-        // POST: Roles/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: Migrates/Edit/5
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("Id,Name,NormalizedName,ConcurrencyStamp")] Role role)
+        public async Task<IActionResult> Edit(string id, [Bind("Id,Type,HLQ1,HLQ2,ManagementClass,CreatedYear,NoOfDatasets,Size")] Migrate migrate)
         {
-            if (id != role.Id)
+            if (id != migrate.Id)
             {
                 return NotFound();
             }
@@ -97,11 +95,11 @@ namespace Pandora.Controllers
             {
                 try
                 {
-                    await _rolesService.UpdateRoleAsync(role);
+                    await _migratesService.UpdateMigrateAsync(migrate);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!_rolesService.RoleExists(role.Id))
+                    if (!_migratesService.MigrateExists(migrate.Id))
                     {
                         return NotFound();
                     }
@@ -112,10 +110,10 @@ namespace Pandora.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(role);
+            return View(migrate);
         }
 
-        // GET: Roles/Delete/5
+        // GET: Migrates/Delete/5
         public async Task<IActionResult> Delete(string id)
         {
             if (id == null)
@@ -123,21 +121,21 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleForDeleteAsync(id);
-            if (role == null)
+            var migrate = await _migratesService.GetMigrateForDeleteAsync(id);
+            if (migrate == null)
             {
                 return NotFound();
             }
 
-            return View(role);
+            return View(migrate);
         }
 
-        // POST: Roles/Delete/5
+        // POST: Migrates/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
-            await _rolesService.DeleteRoleAsync(id);
+            await _migratesService.DeleteMigrateAsync(id);
             return RedirectToAction(nameof(Index));
         }
     }

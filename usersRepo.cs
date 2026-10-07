@@ -1,42 +1,67 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Pandora.Models;
 
 namespace Pandora.Repositories
 {
-    public interface IUserAccountsRepository
+    public interface IRolesRepository
     {
-        User GetUserByLogon(string logon);
-        List<string> GetUserRolesNames(string userId);
+        Task<List<Role>> GetAllRolesAsync();
+        Task<Role> GetRoleByIdAsync(string id);
+        Task<Role> FindRoleByIdAsync(string id);
+        Task AddRoleAsync(Role role);
+        Task UpdateRoleAsync(Role role);
+        Task RemoveRoleAsync(Role role);
+        bool RoleExists(string id);
     }
 
-    public class UserAccountsRepository : IUserAccountsRepository
+    public class RolesRepository : IRolesRepository
     {
         private readonly PandoraDBContext _context;
 
-        public UserAccountsRepository(PandoraDBContext context)
+        public RolesRepository(PandoraDBContext context)
         {
             _context = context;
         }
 
-        public User GetUserByLogon(string logon)
+        public async Task<List<Role>> GetAllRolesAsync()
         {
-            // Replaced .ToUpper() with EF.Functions.ILike to fix PostgreSQL case-sensitivity
-            return _context.Users
-                .Where(u => EF.Functions.ILike(u.Logon, logon))
-                .ToList()
-                .FirstOrDefault();
+            return await _context.Role.ToListAsync();
         }
 
-        public List<string> GetUserRolesNames(string userId)
+        public async Task<Role> GetRoleByIdAsync(string id)
         {
-            var usersRoles = _context.UserRoles.Where(p => p.UserId == userId);
-            
-            return _context.Roles
-                .Join(usersRoles, roles => roles.Id, userRoles => userRoles.RoleId, (roles, userRoles) => roles)
-                .Select(roles => roles.Name)
-                .ToList();
+            return await _context.Role.FirstOrDefaultAsync(m => m.Id == id);
+        }
+
+        public async Task<Role> FindRoleByIdAsync(string id)
+        {
+            return await _context.Role.FindAsync(id);
+        }
+
+        public async Task AddRoleAsync(Role role)
+        {
+            _context.Add(role);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateRoleAsync(Role role)
+        {
+            _context.Update(role);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task RemoveRoleAsync(Role role)
+        {
+            _context.Role.Remove(role);
+            await _context.SaveChangesAsync();
+        }
+
+        public bool RoleExists(string id)
+        {
+            return _context.Role.Any(e => e.Id == id);
         }
     }
 }

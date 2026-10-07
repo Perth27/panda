@@ -6,28 +6,26 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Pandora.Models;
-using Microsoft.AspNetCore.Authorization;
 using Pandora.Services;
 
 namespace Pandora.Controllers
 {
-    //[Authorize(Roles = "Admin")]
-    public class RolesController : Controller
+    public class TapeDSController : Controller
     {
-        private readonly IRolesService _rolesService;
+        private readonly ITapeDSService _tapeDSService;
 
-        public RolesController(IRolesService rolesService)
+        public TapeDSController(ITapeDSService tapeDSService)
         {
-            _rolesService = rolesService;
+            _tapeDSService = tapeDSService;
         }
 
-        // GET: Roles
+        // GET: TapeDS
         public async Task<IActionResult> Index()
         {
-            return View(await _rolesService.GetRolesAsync());
+            return View(await _tapeDSService.GetTapeDSAsync());
         }
 
-        // GET: Roles/Details/5
+        // GET: TapeDS/Details/5
         public async Task<IActionResult> Details(string id)
         {
             if (id == null)
@@ -35,37 +33,37 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleDetailsAsync(id);
-            if (role == null)
+            var tapeDS = await _tapeDSService.GetTapeDSDetailsAsync(id);
+            if (tapeDS == null)
             {
                 return NotFound();
             }
 
-            return View(role);
+            return View(tapeDS);
         }
 
-        // GET: Roles/Create
+        // GET: TapeDS/Create
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: Roles/Create
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: TapeDS/Create
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,NormalizedName,ConcurrencyStamp")] Role role)
+        public async Task<IActionResult> Create([Bind("Id,Type,HLQ1,HLQ2,ManagementClass,CreatedYear,NoOfDatasets,Size")] TapeDS tapeDS)
         {
             if (ModelState.IsValid)
             {
-                await _rolesService.CreateRoleAsync(role);
+                await _tapeDSService.CreateTapeDSAsync(tapeDS);
                 return RedirectToAction(nameof(Index));
             }
-            return View(role);
+            return View(tapeDS);
         }
 
-        // GET: Roles/Edit/5
+        // GET: TapeDS/Edit/5
         public async Task<IActionResult> Edit(string id)
         {
             if (id == null)
@@ -73,22 +71,22 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleForEditAsync(id);
-            if (role == null)
+            var tapeDS = await _tapeDSService.GetTapeDSForEditAsync(id);
+            if (tapeDS == null)
             {
                 return NotFound();
             }
-            return View(role);
+            return View(tapeDS);
         }
 
-        // POST: Roles/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
+        // POST: TapeDS/Edit/5
+        // To protect from overposting attacks, enable the specific properties you want to bind to.
+        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("Id,Name,NormalizedName,ConcurrencyStamp")] Role role)
+        public async Task<IActionResult> Edit(string id, [Bind("Id,Type,HLQ1,HLQ2,ManagementClass,CreatedYear,NoOfDatasets,Size")] TapeDS tapeDS)
         {
-            if (id != role.Id)
+            if (id != tapeDS.Id)
             {
                 return NotFound();
             }
@@ -97,11 +95,11 @@ namespace Pandora.Controllers
             {
                 try
                 {
-                    await _rolesService.UpdateRoleAsync(role);
+                    await _tapeDSService.UpdateTapeDSAsync(tapeDS);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    if (!_rolesService.RoleExists(role.Id))
+                    if (!_tapeDSService.TapeDSExists(tapeDS.Id))
                     {
                         return NotFound();
                     }
@@ -112,10 +110,10 @@ namespace Pandora.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            return View(role);
+            return View(tapeDS);
         }
 
-        // GET: Roles/Delete/5
+        // GET: TapeDS/Delete/5
         public async Task<IActionResult> Delete(string id)
         {
             if (id == null)
@@ -123,21 +121,21 @@ namespace Pandora.Controllers
                 return NotFound();
             }
 
-            var role = await _rolesService.GetRoleForDeleteAsync(id);
-            if (role == null)
+            var tapeDS = await _tapeDSService.GetTapeDSForDeleteAsync(id);
+            if (tapeDS == null)
             {
                 return NotFound();
             }
 
-            return View(role);
+            return View(tapeDS);
         }
 
-        // POST: Roles/Delete/5
+        // POST: TapeDS/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
-            await _rolesService.DeleteRoleAsync(id);
+            await _tapeDSService.DeleteTapeDSAsync(id);
             return RedirectToAction(nameof(Index));
         }
     }

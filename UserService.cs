@@ -1,66 +1,73 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Pandora.Models.ViewModels;
+using Pandora.Models;
 using Pandora.Repositories;
-using Pandora.Security;
 
 namespace Pandora.Services
 {
-    public interface IUserAccountsService
+    public interface IRolesService
     {
-        Task<(bool IsSuccess, string ErrorMessage, Exception ExceptionDetails)> ProcessLoginAsync(LoginViewModel model);
-        Task SignOutAsync();
+        Task<List<Role>> GetRolesAsync();
+        Task<Role> GetRoleDetailsAsync(string id);
+        Task CreateRoleAsync(Role role);
+        Task<Role> GetRoleForEditAsync(string id);
+        Task UpdateRoleAsync(Role role);
+        Task<Role> GetRoleForDeleteAsync(string id);
+        Task DeleteRoleAsync(string id);
+        bool RoleExists(string id);
     }
 
-    public class UserAccountsService : IUserAccountsService
+    public class RolesService : IRolesService
     {
-        private readonly IUserAccountsRepository _repository;
-        private readonly Security.IAuthenticationService _authService;
-        private readonly ISignInManager _signInManager;
+        private readonly IRolesRepository _repository;
 
-        public UserAccountsService(
-            IUserAccountsRepository repository, 
-            Security.IAuthenticationService authService, 
-            ISignInManager signInManager)
+        public RolesService(IRolesRepository repository)
         {
             _repository = repository;
-            _authService = authService;
-            _signInManager = signInManager;
         }
 
-        public async Task<(bool IsSuccess, string ErrorMessage, Exception ExceptionDetails)> ProcessLoginAsync(LoginViewModel model)
+        public async Task<List<Role>> GetRolesAsync()
         {
-            try
-            {
-                var user = await _authService.Login(model.Username.ToUpper(), model.Password, model.Domain);
-                if (user != null)
-                {
-                    User currentUser = _repository.GetUserByLogon(model.Username);
-                    
-                    if (currentUser != null)
-                    {
-                        var userRolesNames = _repository.GetUserRolesNames(currentUser.Id);
-                        await _signInManager.SignInAsync(model.Username.ToUpper(), userRolesNames);
-                        return (true, null, null);
-                    }
+            return await _repository.GetAllRolesAsync();
+        }
 
-                    List<string> rolesList = new List<string>();
-                    await _signInManager.SignInAsync(model.Username.ToUpper(), rolesList);
-                    return (true, null, null);
-                }
-                
-                return (false, "Incorrect Username or Password. Please try again.", null);
-            }
-            catch (Exception ex)
+        public async Task<Role> GetRoleDetailsAsync(string id)
+        {
+            return await _repository.GetRoleByIdAsync(id);
+        }
+
+        public async Task CreateRoleAsync(Role role)
+        {
+            await _repository.AddRoleAsync(role);
+        }
+
+        public async Task<Role> GetRoleForEditAsync(string id)
+        {
+            return await _repository.FindRoleByIdAsync(id);
+        }
+
+        public async Task UpdateRoleAsync(Role role)
+        {
+            await _repository.UpdateRoleAsync(role);
+        }
+
+        public async Task<Role> GetRoleForDeleteAsync(string id)
+        {
+            return await _repository.GetRoleByIdAsync(id);
+        }
+
+        public async Task DeleteRoleAsync(string id)
+        {
+            var role = await _repository.FindRoleByIdAsync(id);
+            if (role != null)
             {
-                return (false, null, ex);
+                await _repository.RemoveRoleAsync(role);
             }
         }
 
-        public async Task SignOutAsync()
+        public bool RoleExists(string id)
         {
-            await _signInManager.SignOutAsync();
+            return _repository.RoleExists(id);
         }
     }
 }
